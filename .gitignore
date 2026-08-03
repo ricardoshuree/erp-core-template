@@ -1,0 +1,26 @@
+# Ferramenta de apoio ao desenvolvimento (repo proprio, nao faz parte do produto)
+mcp-local/
+
+# Ambientes virtuais Python
+.venv/
+venv/
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# Node / frontend
+node_modules/
+dist/
+build/
+
+# Variaveis de ambiente e segredos
+.env
+.env.local
+.env.*.local
+
+# Backups automaticos gerados por scripts locais
+*.json.bak
+
+# IDE
+.vscode/
