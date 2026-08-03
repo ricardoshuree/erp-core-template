@@ -1,5 +1,5 @@
-# [mcp-local harness] feature: rbac-core | plano: f7231fff | 2026-08-03 13:55:12
-# Adiciona Role, Module, RolePermission, UserRole e relacionamento roles no User
+# [mcp-local harness] feature: frontend-rbac | plano: 1231b7fe | 2026-08-03 15:40:11
+# Adiciona ModulePermission e UserPermissions como response models para o endpoint de permissões
 import uuid
 from datetime import UTC, datetime
 
@@ -73,6 +73,25 @@ class UserRole(SQLModel, table=True):
 
     user: "User" = Relationship(back_populates="roles")
     role: Role = Relationship(back_populates="user_roles")
+
+
+# ---------------------------------------------------------------------------
+# RBAC — Response models (usados pelo endpoint /users/me/permissions)
+# ---------------------------------------------------------------------------
+
+class ModulePermission(SQLModel):
+    """Permissão efetiva de um usuário em um módulo específico."""
+    module: str
+    description: str | None = None
+    can_read: bool
+    can_edit: bool
+
+
+class UserPermissions(SQLModel):
+    """Resposta completa de permissões do usuário logado."""
+    is_superuser: bool
+    roles: list[str]
+    permissions: list[ModulePermission]
 
 
 # ---------------------------------------------------------------------------
