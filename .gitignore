@@ -1,3 +1,5 @@
+# [mcp-local harness] feature: gitignore-complemento | plano: 811367b7 | 2026-08-03 13:37:06
+# Gitignore completo cobrindo: mcp-local, Python, Node/frontend, Docker, testes e segredos
 # Ferramenta de apoio ao desenvolvimento (repo proprio, nao faz parte do produto)
 mcp-local/
 
@@ -8,13 +10,29 @@ venv/
 # Cache Python
 __pycache__/
 *.pyc
+*.pyo
+.Python
+
+# Cobertura de testes
+htmlcov/
+.coverage
+coverage/
+coverage.xml
 
 # Node / frontend
 node_modules/
 dist/
 build/
+frontend/dist/
+frontend/public/assets/images/
 
-# Variaveis de ambiente e segredos
+# Artefatos de build do backend servido pelo FastAPI
+backend/app/frontend/
+
+# Docker
+.dockerenv
+
+# Variaveis de ambiente e segredos (nunca commitar .env com valores reais)
 .env
 .env.local
 .env.*.local
@@ -22,5 +40,9 @@ build/
 # Backups automaticos gerados por scripts locais
 *.json.bak
 
+# Copier (scaffolding, nao usado em producao)
+.copier/
+
 # IDE
 .vscode/
+.idea/
