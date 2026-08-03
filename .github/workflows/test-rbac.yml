@@ -1,0 +1,52 @@
+name: Test RBAC
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-rbac:
+    name: RBAC unit tests (SQLite, no Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Create app/frontend dir (required by main.py)
+        run: mkdir -p backend/app/frontend
+
+      - name: Run RBAC tests
+        env:
+          PROJECT_NAME: erp-core-template
+          POSTGRES_SERVER: localhost
+          POSTGRES_PORT: '5432'
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: erp_test
+          FIRST_SUPERUSER: admin@erptest.com
+          FIRST_SUPERUSER_PASSWORD: testpassword123
+          SECRET_KEY: testsecretkey123456789012345678901234567890
+        run: uv run pytest tests/rbac/ -v --tb=short
+        working-directory: backend
