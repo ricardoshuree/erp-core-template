@@ -46,3 +46,5 @@ backend/app/frontend/
 # IDE
 .vscode/
 .idea/
+
+backend/.commands
