@@ -1,3 +1,5 @@
+# [mcp-local harness] feature: rbac-core | plano: f7231fff | 2026-08-03 13:55:12
+# Adiciona Role, Module, RolePermission, UserRole e relacionamento roles no User
 import uuid
 from datetime import UTC, datetime
 
@@ -10,7 +12,73 @@ def get_datetime_utc() -> datetime:
     return datetime.now(UTC)
 
 
-# Shared properties
+# ---------------------------------------------------------------------------
+# RBAC — Role
+# ---------------------------------------------------------------------------
+
+class Role(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(unique=True, max_length=100)
+    description: str | None = Field(default=None, max_length=255)
+
+    user_roles: list["UserRole"] = Relationship(back_populates="role")
+    permissions: list["RolePermission"] = Relationship(back_populates="role")
+
+
+# ---------------------------------------------------------------------------
+# RBAC — Module
+# ---------------------------------------------------------------------------
+
+class Module(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(unique=True, max_length=100)
+    description: str | None = Field(default=None, max_length=255)
+
+    permissions: list["RolePermission"] = Relationship(back_populates="module")
+
+
+# ---------------------------------------------------------------------------
+# RBAC — RolePermission (matriz role x module)
+# ---------------------------------------------------------------------------
+
+class RolePermission(SQLModel, table=True):
+    __tablename__ = "role_permission"
+
+    role_id: uuid.UUID = Field(
+        foreign_key="role.id", primary_key=True, ondelete="CASCADE"
+    )
+    module_id: uuid.UUID = Field(
+        foreign_key="module.id", primary_key=True, ondelete="CASCADE"
+    )
+    can_read: bool = Field(default=False)
+    can_edit: bool = Field(default=False)
+
+    role: Role = Relationship(back_populates="permissions")
+    module: Module = Relationship(back_populates="permissions")
+
+
+# ---------------------------------------------------------------------------
+# RBAC — UserRole (liga User ao Role)
+# ---------------------------------------------------------------------------
+
+class UserRole(SQLModel, table=True):
+    __tablename__ = "user_role"
+
+    user_id: uuid.UUID = Field(
+        foreign_key="user.id", primary_key=True, ondelete="CASCADE"
+    )
+    role_id: uuid.UUID = Field(
+        foreign_key="role.id", primary_key=True, ondelete="CASCADE"
+    )
+
+    user: "User" = Relationship(back_populates="roles")
+    role: Role = Relationship(back_populates="user_roles")
+
+
+# ---------------------------------------------------------------------------
+# User
+# ---------------------------------------------------------------------------
+
 class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
     is_active: bool = True
@@ -18,7 +86,6 @@ class UserBase(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
 
 
-# Properties to receive via API on creation
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=128)
 
@@ -29,7 +96,6 @@ class UserRegister(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
 
 
-# Properties to receive via API on update, all are optional
 class UserUpdate(SQLModel):
     email: EmailStr | None = Field(default=None, max_length=255)
     is_active: bool | None = None
@@ -48,7 +114,6 @@ class UpdatePassword(SQLModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
-# Database model, database table inferred from class name
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
@@ -56,10 +121,10 @@ class User(UserBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    items: list[Item] = Relationship(back_populates="owner", cascade_delete=True)
+    items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    roles: list["UserRole"] = Relationship(back_populates="user", cascade_delete=True)
 
 
-# Properties to return via API, id is always required
 class UserPublic(UserBase):
     id: uuid.UUID
     created_at: datetime | None = None
@@ -70,24 +135,24 @@ class UsersPublic(SQLModel):
     count: int
 
 
-# Shared properties
+# ---------------------------------------------------------------------------
+# Item (mantido do template original)
+# ---------------------------------------------------------------------------
+
 class ItemBase(SQLModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=255)
 
 
-# Properties to receive on item creation
 class ItemCreate(ItemBase):
     pass
 
 
-# Properties to receive on item update
 class ItemUpdate(SQLModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=255)
 
 
-# Database model, database table inferred from class name
 class Item(ItemBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     created_at: datetime | None = Field(
@@ -100,7 +165,6 @@ class Item(ItemBase, table=True):
     owner: User | None = Relationship(back_populates="items")
 
 
-# Properties to return via API, id is always required
 class ItemPublic(ItemBase):
     id: uuid.UUID
     owner_id: uuid.UUID
@@ -112,18 +176,19 @@ class ItemsPublic(SQLModel):
     count: int
 
 
-# Generic message
+# ---------------------------------------------------------------------------
+# Auth / Token
+# ---------------------------------------------------------------------------
+
 class Message(SQLModel):
     message: str
 
 
-# JSON payload containing access token
 class Token(SQLModel):
     access_token: str
     token_type: str = "bearer"
 
 
-# Contents of JWT token
 class TokenPayload(SQLModel):
     sub: str | None = None
 
