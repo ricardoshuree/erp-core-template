@@ -1,5 +1,6 @@
-# [mcp-local harness] feature: rbac-core | plano: f7231fff | 2026-08-03 13:55:36
-# Adiciona require_module_permission como factory de dependency de RBAC
+# [mcp-local harness] feature: rbac-tests | plano: f82f1589 | 2026-08-03 14:49:41
+# Converte sub do JWT para uuid.UUID antes do session.get — corrige StatementError no SQLite
+import uuid
 from collections.abc import Generator
 from typing import Annotated
 
@@ -40,7 +41,18 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
-    user = session.get(User, token_data.sub)
+
+    # Converte sub (string) para UUID — necessário para compatibilidade com
+    # SQLite (testes) e Postgres (produção), já que session.get espera UUID.
+    try:
+        user_id = uuid.UUID(token_data.sub)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials",
+        )
+
+    user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if not user.is_active:
@@ -80,11 +92,9 @@ def require_module_permission(module_name: str, need_edit: bool = False):
     Superusuários passam direto — têm acesso irrestrito a todos os módulos.
     """
     def checker(current_user: CurrentUser, session: SessionDep) -> User:
-        # Superuser tem acesso irrestrito
         if current_user.is_superuser:
             return current_user
 
-        # Busca roles do usuário
         user_roles = session.exec(
             select(UserRole).where(UserRole.user_id == current_user.id)
         ).all()
@@ -96,7 +106,6 @@ def require_module_permission(module_name: str, need_edit: bool = False):
                 detail="Sem roles atribuídos a este usuário",
             )
 
-        # Resolve o módulo pelo nome
         module = session.exec(
             select(Module).where(Module.name == module_name)
         ).first()
@@ -106,7 +115,6 @@ def require_module_permission(module_name: str, need_edit: bool = False):
                 detail=f"Módulo '{module_name}' não encontrado",
             )
 
-        # Verifica se algum role tem a permissão necessária
         stmt = (
             select(RolePermission)
             .where(RolePermission.role_id.in_(role_ids))

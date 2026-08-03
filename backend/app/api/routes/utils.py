@@ -1,11 +1,17 @@
-# [mcp-local harness] feature: rbac-tests | plano: 34f09a59 | 2026-08-03 14:03:16
-# Adiciona rota de diagnóstico /utils/rbac-check/{module_name}/{action} para testes de RBAC
+# [mcp-local harness] feature: rbac-tests | plano: a56f90f1 | 2026-08-03 14:39:53
+# Corrige rota rbac-check chamando o guard diretamente com parâmetros de path dinâmicos
 from typing import Literal
 
 from fastapi import APIRouter, Depends
 from pydantic.networks import EmailStr
 
-from app.api.deps import get_current_active_superuser, require_module_permission
+from app.api.deps import (
+    CurrentUser,
+    SessionDep,
+    get_current_active_superuser,
+    get_current_user,
+    require_module_permission,
+)
 from app.models import Message
 from app.utils import generate_test_email, send_email
 
@@ -34,33 +40,33 @@ async def health_check() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Rota de diagnóstico de RBAC — usada exclusivamente pelos testes automatizados
-# Não expõe dados de negócio; só verifica se o guard permite ou bloqueia o acesso.
+# Rota de diagnóstico de RBAC
+# Usada exclusivamente pelos testes automatizados.
+# Não expõe dados de negócio — só verifica se o guard permite o acesso.
 # ---------------------------------------------------------------------------
 
 @router.get(
     "/rbac-check/{module_name}/{action}",
-    tags=["utils"],
     summary="Diagnóstico de permissão RBAC (uso interno / testes)",
 )
 def rbac_check(
     module_name: str,
     action: Literal["read", "edit"],
-    _: Message = Depends(
-        lambda module_name=module_name, action=action: require_module_permission(
-            module_name, need_edit=(action == "edit")
-        )
-    ),
+    current_user: CurrentUser,
+    session: SessionDep,
 ) -> Message:
     """
     Retorna 200 se o usuário autenticado tem a permissão solicitada
-    no módulo informado. Usado pelos testes de RBAC para validar os
-    guards sem precisar de rotas de negócio prontas.
+    no módulo informado.
 
     Códigos possíveis:
       200 — permissão concedida
       401 — não autenticado
-      403 — sem permissão (role ausente ou insuficiente)
+      403 — sem permissão
       404 — módulo não encontrado
     """
+    need_edit = action == "edit"
+    # Chama o guard diretamente (não via Depends, pois module_name é dinâmico)
+    checker = require_module_permission(module_name, need_edit=need_edit)
+    checker(current_user=current_user, session=session)
     return Message(message=f"Acesso '{action}' ao módulo '{module_name}' permitido")
