@@ -1,20 +1,23 @@
-// [mcp-local harness] feature: fix-rbac-supabase-production-ready | plano: 509f25bf | 2026-08-04 07:25:33
-// Corrige fetchPermissions para usar OpenAPI.BASE (VITE_API_URL) em vez de caminho relativo, ja que em producao frontend (Vercel) e backend (Railway) estao em dominios diferentes
+// [mcp-local harness] feature: rbac-crud-permission-matrix | plano: ca222723 | 2026-08-04 13:44:57
+// 4 helpers CRUD (canCreate/canRead/canUpdate/canDelete) substituem canRead/canEdit
 /**
  * usePermissions — busca as permissões efetivas do usuário logado.
  *
  * Consome GET /api/v1/users/me/permissions e retorna:
  *   - is_superuser: boolean
  *   - roles: string[]
- *   - permissions: { module, description, can_read, can_edit }[]
+ *   - permissions: { module, description, can_create, can_read, can_update, can_delete }[]
  *
  * Helpers:
- *   - canRead(module)  → true se o usuário pode ler o módulo
- *   - canEdit(module)  → true se o usuário pode editar o módulo
+ *   - canCreate(module) → true se o usuário pode criar no módulo
+ *   - canRead(module)   → true se o usuário pode ler o módulo
+ *   - canUpdate(module) → true se o usuário pode editar registros existentes
+ *   - canDelete(module) → true se o usuário pode apagar
  *
  * Uso:
- *   const { canRead } = usePermissions()
+ *   const { canRead, canDelete } = usePermissions()
  *   if (canRead("clientes")) { ... }
+ *   if (canDelete("clientes")) { ... } // ex: role "Gerente" tem create/read/update mas NÃO delete
  */
 
 import { useQuery } from "@tanstack/react-query"
@@ -24,8 +27,10 @@ import { isLoggedIn } from "./useAuth"
 export interface ModulePermission {
   module: string
   description: string | null
+  can_create: boolean
   can_read: boolean
-  can_edit: boolean
+  can_update: boolean
+  can_delete: boolean
 }
 
 export interface UserPermissions {
@@ -54,23 +59,27 @@ export function usePermissions() {
     staleTime: 5 * 60 * 1000, // 5 minutos — permissões mudam raramente
   })
 
-  const canRead = (module: string): boolean => {
+  const checkAction = (
+    module: string,
+    action: "can_create" | "can_read" | "can_update" | "can_delete",
+  ): boolean => {
     if (!data) return false
     if (data.is_superuser) return true
-    return data.permissions.some((p) => p.module === module && p.can_read)
+    return data.permissions.some((p) => p.module === module && p[action])
   }
 
-  const canEdit = (module: string): boolean => {
-    if (!data) return false
-    if (data.is_superuser) return true
-    return data.permissions.some((p) => p.module === module && p.can_edit)
-  }
+  const canCreate = (module: string): boolean => checkAction(module, "can_create")
+  const canRead = (module: string): boolean => checkAction(module, "can_read")
+  const canUpdate = (module: string): boolean => checkAction(module, "can_update")
+  const canDelete = (module: string): boolean => checkAction(module, "can_delete")
 
   return {
     permissions: data,
     isLoading,
     error,
+    canCreate,
     canRead,
-    canEdit,
+    canUpdate,
+    canDelete,
   }
 }

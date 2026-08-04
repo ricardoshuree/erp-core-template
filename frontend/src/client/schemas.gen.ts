@@ -225,19 +225,105 @@ export const ModulePermissionSchema = {
             ],
             title: 'Description'
         },
+        can_create: {
+            type: 'boolean',
+            title: 'Can Create'
+        },
         can_read: {
             type: 'boolean',
             title: 'Can Read'
         },
-        can_edit: {
+        can_update: {
             type: 'boolean',
-            title: 'Can Edit'
+            title: 'Can Update'
+        },
+        can_delete: {
+            type: 'boolean',
+            title: 'Can Delete'
         }
     },
     type: 'object',
-    required: ['module', 'can_read', 'can_edit'],
+    required: ['module', 'can_create', 'can_read', 'can_update', 'can_delete'],
     title: 'ModulePermission',
-    description: 'Permissão efetiva de um usuário em um módulo específico.'
+    description: 'Permissão efetiva de um usuário em um módulo específico (CRUD).'
+} as const;
+
+export const ModulePermissionMatrixSchema = {
+    properties: {
+        module: {
+            '$ref': '#/components/schemas/ModulePublic'
+        },
+        entries: {
+            items: {
+                '$ref': '#/components/schemas/RolePermissionEntry'
+            },
+            type: 'array',
+            title: 'Entries'
+        }
+    },
+    type: 'object',
+    required: ['module', 'entries'],
+    title: 'ModulePermissionMatrix'
+} as const;
+
+export const ModulePermissionMatrixUpdateSchema = {
+    properties: {
+        entries: {
+            items: {
+                '$ref': '#/components/schemas/RolePermissionUpdate'
+            },
+            type: 'array',
+            title: 'Entries'
+        }
+    },
+    type: 'object',
+    required: ['entries'],
+    title: 'ModulePermissionMatrixUpdate',
+    description: `Corpo de PUT /modules/{module_id}/permissions -- grava a
+matriz inteira do módulo de uma vez (upsert por role).`
+} as const;
+
+export const ModulePublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name'],
+    title: 'ModulePublic'
+} as const;
+
+export const ModulesPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ModulePublic'
+            },
+            type: 'array',
+            title: 'Data'
+        }
+    },
+    type: 'object',
+    required: ['data'],
+    title: 'ModulesPublic'
 } as const;
 
 export const NewPasswordSchema = {
@@ -281,6 +367,74 @@ export const PrivateUserCreateSchema = {
     type: 'object',
     required: ['email', 'password', 'full_name'],
     title: 'PrivateUserCreate'
+} as const;
+
+export const RolePermissionEntrySchema = {
+    properties: {
+        role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Role Id'
+        },
+        role_name: {
+            type: 'string',
+            title: 'Role Name'
+        },
+        can_create: {
+            type: 'boolean',
+            title: 'Can Create'
+        },
+        can_read: {
+            type: 'boolean',
+            title: 'Can Read'
+        },
+        can_update: {
+            type: 'boolean',
+            title: 'Can Update'
+        },
+        can_delete: {
+            type: 'boolean',
+            title: 'Can Delete'
+        }
+    },
+    type: 'object',
+    required: ['role_id', 'role_name', 'can_create', 'can_read', 'can_update', 'can_delete'],
+    title: 'RolePermissionEntry',
+    description: `Uma linha da matriz: o que uma role específica pode fazer no
+módulo (zerado se ainda não houver RolePermission cadastrado).`
+} as const;
+
+export const RolePermissionUpdateSchema = {
+    properties: {
+        role_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Role Id'
+        },
+        can_create: {
+            type: 'boolean',
+            title: 'Can Create',
+            default: false
+        },
+        can_read: {
+            type: 'boolean',
+            title: 'Can Read',
+            default: false
+        },
+        can_update: {
+            type: 'boolean',
+            title: 'Can Update',
+            default: false
+        },
+        can_delete: {
+            type: 'boolean',
+            title: 'Can Delete',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['role_id'],
+    title: 'RolePermissionUpdate'
 } as const;
 
 export const RolePublicSchema = {

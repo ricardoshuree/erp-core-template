@@ -1,5 +1,5 @@
-# [mcp-local harness] feature: rbac-core | plano: f7231fff | 2026-08-03 13:56:10
-# Adiciona seed de roles padrão (admin, editor, viewer) e módulos base (usuarios, configuracoes) na inicialização; atribui role admin ao superuser
+# [mcp-local harness] feature: rbac-crud-permission-matrix | plano: 3c4333ee | 2026-08-04 13:42:39
+# Seed atualizado para o modelo CRUD de 4 acoes -- editor ganha create/read/update mas nao delete
 import uuid
 
 from sqlmodel import Session, create_engine, select
@@ -18,7 +18,7 @@ engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 
 DEFAULT_ROLES = [
     {"name": "admin",  "description": "Acesso irrestrito a todos os módulos"},
-    {"name": "editor", "description": "Leitura e edição nos módulos permitidos"},
+    {"name": "editor", "description": "Cria e edita nos módulos permitidos, mas não apaga"},
     {"name": "viewer", "description": "Somente leitura nos módulos permitidos"},
 ]
 
@@ -50,8 +50,10 @@ def _ensure_role_permission(
     session: Session,
     role: Role,
     module: Module,
+    can_create: bool,
     can_read: bool,
-    can_edit: bool,
+    can_update: bool,
+    can_delete: bool,
 ) -> None:
     perm = session.exec(
         select(RolePermission)
@@ -62,8 +64,10 @@ def _ensure_role_permission(
         perm = RolePermission(
             role_id=role.id,
             module_id=module.id,
+            can_create=can_create,
             can_read=can_read,
-            can_edit=can_edit,
+            can_update=can_update,
+            can_delete=can_delete,
         )
         session.add(perm)
 
@@ -105,15 +109,24 @@ def init_db(session: Session) -> None:
         modules[m["name"]] = _get_or_create_module(session, m["name"], m["description"])
 
     # ------------------------------------------------------------------
-    # 3. Permissões padrão:
-    #    admin  → can_read + can_edit em todos os módulos base
-    #    editor → can_read + can_edit em todos os módulos base
-    #    viewer → can_read apenas em todos os módulos base
+    # 3. Permissões padrão (CRUD completo por role x módulo):
+    #    admin  → create+read+update+delete em todos os módulos base
+    #    editor → create+read+update (SEM delete) -- padrão "Gerente"
+    #    viewer → somente read em todos os módulos base
     # ------------------------------------------------------------------
     for module in modules.values():
-        _ensure_role_permission(session, roles["admin"],  module, can_read=True, can_edit=True)
-        _ensure_role_permission(session, roles["editor"], module, can_read=True, can_edit=True)
-        _ensure_role_permission(session, roles["viewer"], module, can_read=True, can_edit=False)
+        _ensure_role_permission(
+            session, roles["admin"], module,
+            can_create=True, can_read=True, can_update=True, can_delete=True,
+        )
+        _ensure_role_permission(
+            session, roles["editor"], module,
+            can_create=True, can_read=True, can_update=True, can_delete=False,
+        )
+        _ensure_role_permission(
+            session, roles["viewer"], module,
+            can_create=False, can_read=True, can_update=False, can_delete=False,
+        )
 
     # ------------------------------------------------------------------
     # 4. Atribui role admin ao superuser

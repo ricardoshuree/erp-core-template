@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, RolesReadRolesResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersReadUserPermissionsResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersUpdateUserRolesData, UsersUpdateUserRolesResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, UtilsRbacCheckData, UtilsRbacCheckResponse } from './types.gen';
+import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, ModulesReadModulesResponse, ModulesReadModulePermissionsData, ModulesReadModulePermissionsResponse, ModulesUpdateModulePermissionsData, ModulesUpdateModulePermissionsResponse, PrivateCreateUserData, PrivateCreateUserResponse, RolesReadRolesResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersReadUserPermissionsResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersUpdateUserRolesData, UsersUpdateUserRolesResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, UtilsRbacCheckData, UtilsRbacCheckResponse } from './types.gen';
 
 export class ItemsService {
     /**
@@ -213,6 +213,69 @@ export class LoginService {
     }
 }
 
+export class ModulesService {
+    /**
+     * Read Modules
+     * Lista todos os módulos RBAC cadastrados.
+     * @returns ModulesPublic Successful Response
+     * @throws ApiError
+     */
+    public static readModules(): CancelablePromise<ModulesReadModulesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/modules/'
+        });
+    }
+    
+    /**
+     * Read Module Permissions
+     * Matriz de permissões do módulo: uma linha por role existente, com
+     * os 4 flags CRUD (zerados se a role ainda não tem RolePermission
+     * para este módulo).
+     * @param data The data for the request.
+     * @param data.moduleId
+     * @returns ModulePermissionMatrix Successful Response
+     * @throws ApiError
+     */
+    public static readModulePermissions(data: ModulesReadModulePermissionsData): CancelablePromise<ModulesReadModulePermissionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/modules/{module_id}/permissions',
+            path: {
+                module_id: data.moduleId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Module Permissions
+     * Grava a matriz de permissões do módulo de uma vez -- upsert por
+     * role (cria a linha se não existir, atualiza os 4 flags se existir).
+     * @param data The data for the request.
+     * @param data.moduleId
+     * @param data.requestBody
+     * @returns ModulePermissionMatrix Successful Response
+     * @throws ApiError
+     */
+    public static updateModulePermissions(data: ModulesUpdateModulePermissionsData): CancelablePromise<ModulesUpdateModulePermissionsResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/v1/modules/{module_id}/permissions',
+            path: {
+                module_id: data.moduleId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class PrivateService {
     /**
      * Create User
@@ -342,12 +405,15 @@ export class UsersService {
     
     /**
      * Read User Permissions
-     * Retorna os módulos e permissões efetivas do usuário logado.
+     * Retorna os módulos e permissões efetivas do usuário logado (CRUD
+     * completo: can_create, can_read, can_update, can_delete).
      *
-     * Superusuários recebem can_read=True e can_edit=True em todos os módulos
+     * Superusuários recebem todas as 4 ações True em todos os módulos
      * cadastrados, independente de roles atribuídos.
      *
-     * Usado pelo frontend para renderizar o menu lateral dinamicamente.
+     * Usado pelo frontend para renderizar o menu lateral dinamicamente
+     * (via can_read) e, futuramente, para gatear botões de criar/editar/
+     * apagar dentro de cada módulo.
      * @returns UserPermissions Successful Response
      * @throws ApiError
      */
@@ -528,7 +594,7 @@ export class UtilsService {
     /**
      * Diagnóstico de permissão RBAC (uso interno / testes)
      * Retorna 200 se o usuário autenticado tem a permissão solicitada
-     * no módulo informado.
+     * (create/read/update/delete) no módulo informado.
      *
      * Códigos possíveis:
      * 200 — permissão concedida

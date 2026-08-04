@@ -1,5 +1,5 @@
-# [mcp-local harness] feature: rbac-role-assignment-backend | plano: fde7657e | 2026-08-04 12:36:00
-# Adiciona RolePublic, RolesPublic, UserRolesUpdate, UserPublicWithRoles, UsersPublicWithRoles -- suporte a atribuicao de roles RBAC via UI
+# [mcp-local harness] feature: fix-models-comment-leak | plano: b966d0fc | 2026-08-04 15:00:30
+# Remove referencia ao gasfavero/produtos.tsx do comentario, volta ao texto generico
 import uuid
 from datetime import UTC, datetime
 
@@ -38,7 +38,11 @@ class Module(SQLModel, table=True):
 
 
 # ---------------------------------------------------------------------------
-# RBAC — RolePermission (matriz role x module)
+# RBAC — RolePermission (matriz role x module x ação)
+#
+# 4 ações CRUD independentes -- ex: uma role pode criar/editar mas não
+# apagar (o exemplo clássico de "Gerente"), o que não era possível
+# expressar com o antigo can_read/can_edit único.
 # ---------------------------------------------------------------------------
 
 class RolePermission(SQLModel, table=True):
@@ -50,8 +54,10 @@ class RolePermission(SQLModel, table=True):
     module_id: uuid.UUID = Field(
         foreign_key="module.id", primary_key=True, ondelete="CASCADE"
     )
+    can_create: bool = Field(default=False)
     can_read: bool = Field(default=False)
-    can_edit: bool = Field(default=False)
+    can_update: bool = Field(default=False)
+    can_delete: bool = Field(default=False)
 
     role: Role = Relationship(back_populates="permissions")
     module: Module = Relationship(back_populates="permissions")
@@ -80,11 +86,13 @@ class UserRole(SQLModel, table=True):
 # ---------------------------------------------------------------------------
 
 class ModulePermission(SQLModel):
-    """Permissão efetiva de um usuário em um módulo específico."""
+    """Permissão efetiva de um usuário em um módulo específico (CRUD)."""
     module: str
     description: str | None = None
+    can_create: bool
     can_read: bool
-    can_edit: bool
+    can_update: bool
+    can_delete: bool
 
 
 class UserPermissions(SQLModel):
@@ -115,6 +123,51 @@ class UserRolesUpdate(SQLModel):
     inteiro de roles do usuário pelos ids informados (lista vazia
     remove todas as roles)."""
     role_ids: list[uuid.UUID]
+
+
+# ---------------------------------------------------------------------------
+# RBAC — Response models (tela de administração da matriz de
+# permissões: Módulo x Role x Ação CRUD)
+# ---------------------------------------------------------------------------
+
+class ModulePublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+
+
+class ModulesPublic(SQLModel):
+    data: list[ModulePublic]
+
+
+class RolePermissionEntry(SQLModel):
+    """Uma linha da matriz: o que uma role específica pode fazer no
+    módulo (zerado se ainda não houver RolePermission cadastrado)."""
+    role_id: uuid.UUID
+    role_name: str
+    can_create: bool
+    can_read: bool
+    can_update: bool
+    can_delete: bool
+
+
+class ModulePermissionMatrix(SQLModel):
+    module: ModulePublic
+    entries: list[RolePermissionEntry]
+
+
+class RolePermissionUpdate(SQLModel):
+    role_id: uuid.UUID
+    can_create: bool = False
+    can_read: bool = False
+    can_update: bool = False
+    can_delete: bool = False
+
+
+class ModulePermissionMatrixUpdate(SQLModel):
+    """Corpo de PUT /modules/{module_id}/permissions -- grava a
+    matriz inteira do módulo de uma vez (upsert por role)."""
+    entries: list[RolePermissionUpdate]
 
 
 # ---------------------------------------------------------------------------

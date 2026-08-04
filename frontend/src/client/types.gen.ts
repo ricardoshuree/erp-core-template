@@ -41,13 +41,38 @@ export type Message = {
 };
 
 /**
- * Permissão efetiva de um usuário em um módulo específico.
+ * Permissão efetiva de um usuário em um módulo específico (CRUD).
  */
 export type ModulePermission = {
     module: string;
     description?: (string | null);
+    can_create: boolean;
     can_read: boolean;
-    can_edit: boolean;
+    can_update: boolean;
+    can_delete: boolean;
+};
+
+export type ModulePermissionMatrix = {
+    module: ModulePublic;
+    entries: Array<RolePermissionEntry>;
+};
+
+/**
+ * Corpo de PUT /modules/{module_id}/permissions -- grava a
+ * matriz inteira do módulo de uma vez (upsert por role).
+ */
+export type ModulePermissionMatrixUpdate = {
+    entries: Array<RolePermissionUpdate>;
+};
+
+export type ModulePublic = {
+    id: string;
+    name: string;
+    description?: (string | null);
+};
+
+export type ModulesPublic = {
+    data: Array<ModulePublic>;
 };
 
 export type NewPassword = {
@@ -60,6 +85,27 @@ export type PrivateUserCreate = {
     password: string;
     full_name: string;
     is_verified?: boolean;
+};
+
+/**
+ * Uma linha da matriz: o que uma role específica pode fazer no
+ * módulo (zerado se ainda não houver RolePermission cadastrado).
+ */
+export type RolePermissionEntry = {
+    role_id: string;
+    role_name: string;
+    can_create: boolean;
+    can_read: boolean;
+    can_update: boolean;
+    can_delete: boolean;
+};
+
+export type RolePermissionUpdate = {
+    role_id: string;
+    can_create?: boolean;
+    can_read?: boolean;
+    can_update?: boolean;
+    can_delete?: boolean;
 };
 
 /**
@@ -227,6 +273,21 @@ export type LoginRecoverPasswordHtmlContentData = {
 
 export type LoginRecoverPasswordHtmlContentResponse = (string);
 
+export type ModulesReadModulesResponse = (ModulesPublic);
+
+export type ModulesReadModulePermissionsData = {
+    moduleId: string;
+};
+
+export type ModulesReadModulePermissionsResponse = (ModulePermissionMatrix);
+
+export type ModulesUpdateModulePermissionsData = {
+    moduleId: string;
+    requestBody: ModulePermissionMatrixUpdate;
+};
+
+export type ModulesUpdateModulePermissionsResponse = (ModulePermissionMatrix);
+
 export type PrivateCreateUserData = {
     requestBody: PrivateUserCreate;
 };
@@ -307,7 +368,7 @@ export type UtilsTestEmailResponse = (Message);
 export type UtilsHealthCheckResponse = (boolean);
 
 export type UtilsRbacCheckData = {
-    action: 'read' | 'edit';
+    action: 'create' | 'read' | 'update' | 'delete';
     moduleName: string;
 };
 

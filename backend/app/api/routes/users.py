@@ -1,5 +1,5 @@
-# [mcp-local harness] feature: rbac-role-assignment-backend | plano: fde7657e | 2026-08-04 12:36:48
-# GET /users/ agora inclui roles de cada usuario; novo endpoint PUT /users/{user_id}/roles para atribuir/substituir roles RBAC, protegido por superuser
+# [mcp-local harness] feature: rbac-crud-permission-matrix | plano: 3c4333ee | 2026-08-04 13:43:42
+# read_user_permissions agora agrega e retorna os 4 flags CRUD por modulo
 import uuid
 from typing import Any
 
@@ -98,12 +98,15 @@ def read_user_permissions(
     current_user: CurrentUser, session: SessionDep
 ) -> UserPermissions:
     """
-    Retorna os módulos e permissões efetivas do usuário logado.
+    Retorna os módulos e permissões efetivas do usuário logado (CRUD
+    completo: can_create, can_read, can_update, can_delete).
 
-    Superusuários recebem can_read=True e can_edit=True em todos os módulos
+    Superusuários recebem todas as 4 ações True em todos os módulos
     cadastrados, independente de roles atribuídos.
 
-    Usado pelo frontend para renderizar o menu lateral dinamicamente.
+    Usado pelo frontend para renderizar o menu lateral dinamicamente
+    (via can_read) e, futuramente, para gatear botões de criar/editar/
+    apagar dentro de cada módulo.
     """
     # Busca todos os roles do usuário
     user_roles = session.exec(
@@ -122,14 +125,16 @@ def read_user_permissions(
     permissions: list[ModulePermission] = []
 
     if current_user.is_superuser:
-        # Superuser tem acesso total a todos os módulos
+        # Superuser tem acesso total (CRUD completo) a todos os módulos
         for module in all_modules:
             permissions.append(
                 ModulePermission(
                     module=module.name,
                     description=module.description,
+                    can_create=True,
                     can_read=True,
-                    can_edit=True,
+                    can_update=True,
+                    can_delete=True,
                 )
             )
     else:
@@ -145,15 +150,19 @@ def read_user_permissions(
             if not perms:
                 continue
             # OR entre os roles: se qualquer role permite, o usuário pode
+            can_create = any(p.can_create for p in perms)
             can_read = any(p.can_read for p in perms)
-            can_edit = any(p.can_edit for p in perms)
-            if can_read or can_edit:
+            can_update = any(p.can_update for p in perms)
+            can_delete = any(p.can_delete for p in perms)
+            if can_create or can_read or can_update or can_delete:
                 permissions.append(
                     ModulePermission(
                         module=module.name,
                         description=module.description,
+                        can_create=can_create,
                         can_read=can_read,
-                        can_edit=can_edit,
+                        can_update=can_update,
+                        can_delete=can_delete,
                     )
                 )
 
