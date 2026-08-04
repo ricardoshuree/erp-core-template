@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: supabase-auth-frontend | plano: 56185697 | 2026-08-04 00:42:41
-// Cliente Supabase JS para autenticacao
+// [mcp-local harness] feature: close-open-signup-security | plano: ac575558 | 2026-08-04 11:30:25
+// Remove comentario desatualizado de 'nao testado'
 // Cliente Supabase para o frontend -- usado só para autenticação
 // (login Google via OAuth). Toda a leitura/escrita de dados de negócio
 // continua indo pelo backend FastAPI (client/ gerado do OpenAPI), não
@@ -9,10 +9,6 @@
 // frontend (mesmos valores públicos usados no backend, prefixados com
 // VITE_ para o Vite expor no bundle do browser -- são seguros de expor,
 // é a "publishable key").
-//
-// STATUS: não testado ponta a ponta ainda -- precisa `bun install` (ou
-// npm install) para trazer a dependência @supabase/supabase-js antes de
-// rodar.
 import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL

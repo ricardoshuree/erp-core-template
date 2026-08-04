@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: supabase-auth-frontend | plano: 56185697 | 2026-08-04 00:43:00
-// useAuth com loginWithGoogle e sincronizacao de sessao Supabase, mantendo login local intacto
+// [mcp-local harness] feature: close-open-signup-security | plano: ac575558 | 2026-08-04 11:30:14
+// Atualiza comentario desatualizado, documenta comportamento do sistema fechado (403 -> redirect automatico pro login)
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
@@ -24,9 +24,10 @@ const isLoggedIn = () => {
 // OpenAPI, usePermissions, etc.) -- assim nenhum outro lugar do
 // código precisa saber qual dos dois métodos de login foi usado.
 //
-// STATUS: não testado ponta a ponta -- precisa `bun install` para
-// trazer @supabase/supabase-js, e um login Google real pra confirmar
-// que o redirect e o onAuthStateChange disparam como esperado.
+// Sistema fechado: se o backend rejeitar o token (email não
+// cadastrado), a próxima chamada autenticada (ex: readUserMe) recebe
+// 403 e o interceptor global de erro (main.tsx) limpa o token e
+// redireciona pro /login.
 function useSupabaseSessionSync() {
   const navigate = useNavigate()
 

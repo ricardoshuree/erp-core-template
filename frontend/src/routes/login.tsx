@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: supabase-auth-frontend | plano: 56185697 | 2026-08-04 00:43:18
-// Adiciona botao Continuar com Google acima do form de login existente
+// [mcp-local harness] feature: close-open-signup-security | plano: ac575558 | 2026-08-04 11:31:06
+// Remove o link 'Sign up' -- sistema fechado, ninguem se auto-cadastra
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   createFileRoute,
@@ -147,13 +147,6 @@ function Login() {
             <LoadingButton type="submit" loading={loginMutation.isPending}>
               Log In
             </LoadingButton>
-          </div>
-
-          <div className="text-center text-sm">
-            Don't have an account yet?{" "}
-            <RouterLink to="/signup" className="underline underline-offset-4">
-              Sign up
-            </RouterLink>
           </div>
         </form>
       </Form>

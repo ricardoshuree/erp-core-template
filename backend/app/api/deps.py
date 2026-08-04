@@ -1,19 +1,19 @@
-# [mcp-local harness] feature: supabase-auth-backend | plano: 82afe850 | 2026-08-04 00:41:47
-# get_current_user com fallback aditivo para tokens do Supabase Auth, auto-provisionamento de usuario sem roles
-# [mcp-local harness] feature: rbac-tests | plano: f82f1589 | 2026-08-03 14:49:41
-# Converte sub do JWT para uuid.UUID antes do session.get — corrige StatementError no SQLite
-#
-# [mcp-local harness] feature: supabase-auth-backend | plano: 82afe850 | 2026-08-04 00:41
-# get_current_user agora tenta o JWT local primeiro (compatibilidade com
-# o FIRST_SUPERUSER seedado e qualquer login por senha existente) e, se
-# falhar, tenta verificar como um JWT do Supabase Auth (login Google).
-# Na primeira vez que um usuário autenticado via Supabase aparece, um
-# User local é criado por email, sem nenhuma role atribuída -- um admin
-# precisa atribuir role manualmente antes do usuário ter qualquer
-# permissão além do próprio perfil. NÃO TESTADO ponta a ponta ainda
-# (ver aviso em app/core/supabase_auth.py) -- revisar antes de confiar
-# em produção.
-import secrets
+# [mcp-local harness] feature: close-open-signup-security | plano: ac575558 | 2026-08-04 11:28:17
+# Sistema fechado: login Google rejeita email desconhecido (403) em vez de auto-criar usuario; remove comentarios desatualizados de nao-testado
+"""
+Dependências de autenticação e autorização.
+
+Fluxo de login suportado: JWT local (email+senha) e JWT do Supabase
+Auth (Google OAuth). Ambos passam por get_current_user.
+
+Política de cadastro: SISTEMA FECHADO. Ninguém se auto-cadastra, por
+nenhum dos dois métodos -- só um admin cria contas (tela "Usuários",
+POST /users/, protegido por get_current_active_superuser). Um usuário
+que loga via Google com um email que não existe localmente é
+REJEITADO (403), não auto-provisionado. O endpoint POST /users/signup
+(auto-cadastro local) está desabilitado no código, reservado para uma
+futura abertura do canal de vendas B2C.
+"""
 import uuid
 from collections.abc import Generator
 from typing import Annotated
@@ -45,12 +45,17 @@ SessionDep = Annotated[Session, Depends(get_db)]
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
 
-def _get_or_create_user_from_supabase(session: Session, payload: dict) -> User:
+def _get_user_from_supabase(session: Session, payload: dict) -> User:
     """
-    Busca (ou cria) o User local correspondente a um token do Supabase
-    Auth, casando por e-mail. Usuários novos entram SEM roles -- um
-    admin precisa atribuir manualmente antes de terem qualquer
-    permissão além do próprio perfil (/users/me).
+    Busca o User local correspondente a um token do Supabase Auth,
+    casando por e-mail.
+
+    Sistema fechado: NÃO cria usuário novo. Login via Google só
+    funciona para e-mails já cadastrados previamente por um admin
+    (tela "Usuários"). Um e-mail desconhecido é rejeitado com 403 --
+    essa trava vive no código, não depende do Google Cloud estar em
+    modo "Testing" com uma allowlist de test users (essa allowlist é
+    uma camada extra, não a única defesa).
     """
     email = payload.get("email")
     if not email:
@@ -60,22 +65,14 @@ def _get_or_create_user_from_supabase(session: Session, payload: dict) -> User:
         )
 
     user = session.exec(select(User).where(User.email == email)).first()
-    if user:
-        return user
-
-    # Placeholder de senha inutilizável -- este usuário só autentica via
-    # Supabase (Google), nunca via /login/access-token local.
-    placeholder_password = security.get_password_hash(secrets.token_urlsafe(32))
-    user = User(
-        email=email,
-        full_name=payload.get("user_metadata", {}).get("full_name"),
-        hashed_password=placeholder_password,
-        is_active=True,
-        is_superuser=False,
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Este e-mail não está cadastrado no sistema. "
+                "Peça a um administrador para criar sua conta antes de entrar."
+            ),
+        )
     return user
 
 
@@ -104,7 +101,7 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
             detail="Could not validate credentials",
         )
 
-    user = _get_or_create_user_from_supabase(session, supabase_payload)
+    user = _get_user_from_supabase(session, supabase_payload)
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return user
