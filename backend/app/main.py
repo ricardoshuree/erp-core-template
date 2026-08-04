@@ -1,3 +1,5 @@
+# [mcp-local harness] feature: fix-frontend-mount-conditional | plano: b3d29731 | 2026-08-04 00:20:28
+# Frontend mount condicional a existencia do diretorio
 from pathlib import Path
 
 import sentry_sdk
@@ -35,4 +37,10 @@ if settings.all_cors_origins:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
-app.frontend("/", directory=FRONTEND_DIR)
+
+# Frontend servido separadamente via Vercel nesta arquitetura (nao
+# single-container). Monta os estaticos do frontend so se o diretorio
+# existir -- preserva a opcao de deploy single-container no futuro sem
+# quebrar o deploy atual do backend isolado (Railway).
+if FRONTEND_DIR.exists():
+    app.frontend("/", directory=FRONTEND_DIR)
