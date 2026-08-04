@@ -1,5 +1,5 @@
-# [mcp-local harness] feature: supabase-auth-backend | plano: 82afe850 | 2026-08-04 00:41:22
-# Modulo de verificacao de JWT do Supabase via JWKS
+# [mcp-local harness] feature: close-open-signup-security | plano: ac575558 | 2026-08-04 11:29:53
+# Remove docstring desatualizado de 'nao testado' -- fluxo ja validado com login Google real em producao
 """
 Verificação de tokens JWT emitidos pelo Supabase Auth.
 
@@ -14,19 +14,9 @@ Supabase) -- a verificação usa a chave pública do projeto, sem precisar
 armazenar nenhum segredo adicional no backend além da própria
 SUPABASE_URL (já configurada).
 
-STATUS: escrito nesta sessão sem acesso a teste ponta a ponta (nenhum
-login Google real foi executado contra isto ainda). Antes de confiar em
-produção:
-1. Rodar backend localmente, fazer login Google no frontend, confirmar
-   que o token chega em get_current_user e é aceito
-2. Conferir os claims reais do payload (sub, email) -- o Supabase pode
-   variar o formato entre versões; os nomes usados aqui (payload["sub"],
-   payload["email"]) são os documentados atualmente, mas não foram
-   validados contra um token real neste ambiente
-3. Confirmar que backend/pyproject.toml tem `cryptography` instalado
-   (necessário para PyJWKClient com chaves ES256) -- rodar `uv sync`
-   (dev local) ou aguardar o próximo `pip install .` (Railway) recriar
-   o ambiente
+Validado com login Google real em produção. A dependência `cryptography`
+(backend/pyproject.toml) é necessária para o PyJWKClient verificar
+assinaturas ES256/RS256.
 """
 
 import jwt

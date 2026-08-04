@@ -1,3 +1,11 @@
+// [mcp-local harness] feature: close-open-signup-security | plano: ac575558 | 2026-08-04 11:30:50
+// Nova pagina de signup renomeada para /signup-b2c-disabled, reservada para futuro canal B2C, sem link na UI
+// Pagina de auto-cadastro -- DESABILITADA no backend (POST /users/signup
+// retorna 403 sempre, ver backend/app/api/routes/users.py). Reservada
+// para uma futura abertura do canal de vendas B2C (cliente final /
+// comprador varejista se cadastrando sozinho). Sem link na UI --
+// so acessivel por quem digitar a URL diretamente, e mesmo assim o
+// submit falha com a mensagem do backend.
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   createFileRoute,
@@ -39,7 +47,7 @@ const formSchema = z
 
 type FormData = z.infer<typeof formSchema>
 
-export const Route = createFileRoute("/signup")({
+export const Route = createFileRoute("/signup-b2c-disabled")({
   component: SignUp,
   beforeLoad: async () => {
     if (isLoggedIn()) {
