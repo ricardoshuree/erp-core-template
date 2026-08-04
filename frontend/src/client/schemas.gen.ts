@@ -208,6 +208,38 @@ export const MessageSchema = {
     title: 'Message'
 } as const;
 
+export const ModulePermissionSchema = {
+    properties: {
+        module: {
+            type: 'string',
+            title: 'Module'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        can_read: {
+            type: 'boolean',
+            title: 'Can Read'
+        },
+        can_edit: {
+            type: 'boolean',
+            title: 'Can Edit'
+        }
+    },
+    type: 'object',
+    required: ['module', 'can_read', 'can_edit'],
+    title: 'ModulePermission',
+    description: 'Permissão efetiva de um usuário em um módulo específico.'
+} as const;
+
 export const NewPasswordSchema = {
     properties: {
         token: {
@@ -249,6 +281,50 @@ export const PrivateUserCreateSchema = {
     type: 'object',
     required: ['email', 'password', 'full_name'],
     title: 'PrivateUserCreate'
+} as const;
+
+export const RolePublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name'],
+    title: 'RolePublic',
+    description: 'Role RBAC exposta pra UI (não confundir com is_superuser).'
+} as const;
+
+export const RolesPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RolePublic'
+            },
+            type: 'array',
+            title: 'Data'
+        }
+    },
+    type: 'object',
+    required: ['data'],
+    title: 'RolesPublic'
 } as const;
 
 export const TokenSchema = {
@@ -330,6 +406,33 @@ export const UserCreateSchema = {
     title: 'UserCreate'
 } as const;
 
+export const UserPermissionsSchema = {
+    properties: {
+        is_superuser: {
+            type: 'boolean',
+            title: 'Is Superuser'
+        },
+        roles: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Roles'
+        },
+        permissions: {
+            items: {
+                '$ref': '#/components/schemas/ModulePermission'
+            },
+            type: 'array',
+            title: 'Permissions'
+        }
+    },
+    type: 'object',
+    required: ['is_superuser', 'roles', 'permissions'],
+    title: 'UserPermissions',
+    description: 'Resposta completa de permissões do usuário logado.'
+} as const;
+
 export const UserPublicSchema = {
     properties: {
         email: {
@@ -383,6 +486,70 @@ export const UserPublicSchema = {
     title: 'UserPublic'
 } as const;
 
+export const UserPublicWithRolesSchema = {
+    properties: {
+        email: {
+            type: 'string',
+            maxLength: 255,
+            format: 'email',
+            title: 'Email'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active',
+            default: true
+        },
+        is_superuser: {
+            type: 'boolean',
+            title: 'Is Superuser',
+            default: false
+        },
+        full_name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        },
+        roles: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Roles',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['email', 'id'],
+    title: 'UserPublicWithRoles',
+    description: `UserPublic + nomes das roles RBAC atribuídas -- usado pela
+tabela de Usuários na tela de admin, que mostra e permite editar
+as roles de cada um.`
+} as const;
+
 export const UserRegisterSchema = {
     properties: {
         email: {
@@ -413,6 +580,25 @@ export const UserRegisterSchema = {
     type: 'object',
     required: ['email', 'password'],
     title: 'UserRegister'
+} as const;
+
+export const UserRolesUpdateSchema = {
+    properties: {
+        role_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Role Ids'
+        }
+    },
+    type: 'object',
+    required: ['role_ids'],
+    title: 'UserRolesUpdate',
+    description: `Corpo de PUT /users/{user_id}/roles -- substitui o conjunto
+inteiro de roles do usuário pelos ids informados (lista vazia
+remove todas as roles).`
 } as const;
 
 export const UserUpdateSchema = {
@@ -514,11 +700,11 @@ export const UserUpdateMeSchema = {
     title: 'UserUpdateMe'
 } as const;
 
-export const UsersPublicSchema = {
+export const UsersPublicWithRolesSchema = {
     properties: {
         data: {
             items: {
-                '$ref': '#/components/schemas/UserPublic'
+                '$ref': '#/components/schemas/UserPublicWithRoles'
             },
             type: 'array',
             title: 'Data'
@@ -530,7 +716,7 @@ export const UsersPublicSchema = {
     },
     type: 'object',
     required: ['data', 'count'],
-    title: 'UsersPublic'
+    title: 'UsersPublicWithRoles'
 } as const;
 
 export const ValidationErrorSchema = {

@@ -40,6 +40,16 @@ export type Message = {
     message: string;
 };
 
+/**
+ * Permissão efetiva de um usuário em um módulo específico.
+ */
+export type ModulePermission = {
+    module: string;
+    description?: (string | null);
+    can_read: boolean;
+    can_edit: boolean;
+};
+
 export type NewPassword = {
     token: string;
     new_password: string;
@@ -50,6 +60,19 @@ export type PrivateUserCreate = {
     password: string;
     full_name: string;
     is_verified?: boolean;
+};
+
+/**
+ * Role RBAC exposta pra UI (não confundir com is_superuser).
+ */
+export type RolePublic = {
+    id: string;
+    name: string;
+    description?: (string | null);
+};
+
+export type RolesPublic = {
+    data: Array<RolePublic>;
 };
 
 export type Token = {
@@ -70,6 +93,15 @@ export type UserCreate = {
     password: string;
 };
 
+/**
+ * Resposta completa de permissões do usuário logado.
+ */
+export type UserPermissions = {
+    is_superuser: boolean;
+    roles: Array<(string)>;
+    permissions: Array<ModulePermission>;
+};
+
 export type UserPublic = {
     email: string;
     is_active?: boolean;
@@ -79,14 +111,38 @@ export type UserPublic = {
     created_at?: (string | null);
 };
 
+/**
+ * UserPublic + nomes das roles RBAC atribuídas -- usado pela
+ * tabela de Usuários na tela de admin, que mostra e permite editar
+ * as roles de cada um.
+ */
+export type UserPublicWithRoles = {
+    email: string;
+    is_active?: boolean;
+    is_superuser?: boolean;
+    full_name?: (string | null);
+    id: string;
+    created_at?: (string | null);
+    roles?: Array<(string)>;
+};
+
 export type UserRegister = {
     email: string;
     password: string;
     full_name?: (string | null);
 };
 
-export type UsersPublic = {
-    data: Array<UserPublic>;
+/**
+ * Corpo de PUT /users/{user_id}/roles -- substitui o conjunto
+ * inteiro de roles do usuário pelos ids informados (lista vazia
+ * remove todas as roles).
+ */
+export type UserRolesUpdate = {
+    role_ids: Array<(string)>;
+};
+
+export type UsersPublicWithRoles = {
+    data: Array<UserPublicWithRoles>;
     count: number;
 };
 
@@ -177,12 +233,14 @@ export type PrivateCreateUserData = {
 
 export type PrivateCreateUserResponse = (UserPublic);
 
+export type RolesReadRolesResponse = (RolesPublic);
+
 export type UsersReadUsersData = {
     limit?: number;
     skip?: number;
 };
 
-export type UsersReadUsersResponse = (UsersPublic);
+export type UsersReadUsersResponse = (UsersPublicWithRoles);
 
 export type UsersCreateUserData = {
     requestBody: UserCreate;
@@ -200,6 +258,8 @@ export type UsersUpdateUserMeData = {
 
 export type UsersUpdateUserMeResponse = (UserPublic);
 
+export type UsersReadUserPermissionsResponse = (UserPermissions);
+
 export type UsersUpdatePasswordMeData = {
     requestBody: UpdatePassword;
 };
@@ -211,6 +271,13 @@ export type UsersRegisterUserData = {
 };
 
 export type UsersRegisterUserResponse = (UserPublic);
+
+export type UsersUpdateUserRolesData = {
+    requestBody: UserRolesUpdate;
+    userId: string;
+};
+
+export type UsersUpdateUserRolesResponse = (UserPublicWithRoles);
 
 export type UsersReadUserByIdData = {
     userId: string;
@@ -238,3 +305,10 @@ export type UtilsTestEmailData = {
 export type UtilsTestEmailResponse = (Message);
 
 export type UtilsHealthCheckResponse = (boolean);
+
+export type UtilsRbacCheckData = {
+    action: 'read' | 'edit';
+    moduleName: string;
+};
+
+export type UtilsRbacCheckResponse = (Message);

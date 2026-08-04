@@ -1,5 +1,5 @@
-# [mcp-local harness] feature: fix-project-name-leak | plano: 7563fe1b | 2026-08-04 11:51:04
-# Troca 'gasfavero' por termo generico 'este template' no comentario
+# [mcp-local harness] feature: rbac-role-assignment-backend | plano: fde7657e | 2026-08-04 12:36:48
+# GET /users/ agora inclui roles de cada usuario; novo endpoint PUT /users/{user_id}/roles para atribuir/substituir roles RBAC, protegido por superuser
 import uuid
 from typing import Any
 
@@ -19,15 +19,19 @@ from app.models import (
     Message,
     Module,
     ModulePermission,
+    Role,
     RolePermission,
     UpdatePassword,
     User,
     UserCreate,
     UserPermissions,
     UserPublic,
+    UserPublicWithRoles,
     UserRegister,
     UserRole,
+    UserRolesUpdate,
     UsersPublic,
+    UsersPublicWithRoles,
     UserUpdate,
     UserUpdateMe,
 )
@@ -39,18 +43,24 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=UsersPublic,
+    response_model=UsersPublicWithRoles,
 )
 def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
-    """Retrieve users."""
+    """Retrieve users, com as roles RBAC de cada um (para a tela de admin)."""
     count_statement = select(func.count()).select_from(User)
     count = session.exec(count_statement).one()
     statement = (
         select(User).order_by(col(User.created_at).desc()).offset(skip).limit(limit)
     )
     users = session.exec(statement).all()
-    users_public = [UserPublic.model_validate(user) for user in users]
-    return UsersPublic(data=users_public, count=count)
+    users_public = [
+        UserPublicWithRoles(
+            **user.model_dump(),
+            roles=[ur.role.name for ur in user.roles if ur.role],
+        )
+        for user in users
+    ]
+    return UsersPublicWithRoles(data=users_public, count=count)
 
 
 @router.post(
@@ -234,6 +244,53 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
             "Cadastro público desabilitado. Peça a um administrador "
             "para criar sua conta."
         ),
+    )
+
+
+@router.put(
+    "/{user_id}/roles",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=UserPublicWithRoles,
+)
+def update_user_roles(
+    *, session: SessionDep, user_id: uuid.UUID, body: UserRolesUpdate
+) -> Any:
+    """
+    Substitui o conjunto de roles RBAC de um usuário pelos ids
+    informados (lista vazia remove todas as roles). Não afeta
+    is_superuser -- é um controle independente.
+    """
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Valida que todos os role_ids informados existem antes de mexer em nada
+    roles_by_id: dict[uuid.UUID, Role] = {}
+    for role_id in body.role_ids:
+        role = session.get(Role, role_id)
+        if not role:
+            raise HTTPException(
+                status_code=404, detail=f"Role '{role_id}' not found"
+            )
+        roles_by_id[role_id] = role
+
+    # Substitui: remove as associações atuais, cria as novas
+    existing = session.exec(
+        select(UserRole).where(UserRole.user_id == user_id)
+    ).all()
+    for ur in existing:
+        session.delete(ur)
+    session.flush()
+
+    for role_id in roles_by_id:
+        session.add(UserRole(user_id=user_id, role_id=role_id))
+
+    session.commit()
+    session.refresh(user)
+
+    return UserPublicWithRoles(
+        **user.model_dump(),
+        roles=[ur.role.name for ur in user.roles if ur.role],
     )
 
 
