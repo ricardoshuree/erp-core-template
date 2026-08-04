@@ -1,3 +1,5 @@
+// [mcp-local harness] feature: supabase-auth-frontend | plano: 56185697 | 2026-08-04 00:43:18
+// Adiciona botao Continuar com Google acima do form de login existente
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   createFileRoute,
@@ -5,10 +7,12 @@ import {
   redirect,
 } from "@tanstack/react-router"
 import { useForm } from "react-hook-form"
+import { FcGoogle } from "react-icons/fc"
 import { z } from "zod"
 
 import type { Body_login_login_access_token as AccessToken } from "@/client"
 import { AuthLayout } from "@/components/Common/AuthLayout"
+import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
@@ -51,7 +55,7 @@ export const Route = createFileRoute("/login")({
 })
 
 function Login() {
-  const { loginMutation } = useAuth()
+  const { loginMutation, loginWithGoogle } = useAuth()
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
@@ -76,6 +80,22 @@ function Login() {
         >
           <div className="flex flex-col items-center gap-2 text-center">
             <h1 className="text-2xl font-bold">Login to your account</h1>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => loginWithGoogle()}
+          >
+            <FcGoogle className="mr-2 size-4" />
+            Continuar com Google
+          </Button>
+
+          <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
+            <span className="relative z-10 bg-background px-2 text-muted-foreground">
+              ou
+            </span>
           </div>
 
           <div className="grid gap-4">

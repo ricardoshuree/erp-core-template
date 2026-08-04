@@ -1,5 +1,19 @@
+# [mcp-local harness] feature: supabase-auth-backend | plano: 82afe850 | 2026-08-04 00:41:47
+# get_current_user com fallback aditivo para tokens do Supabase Auth, auto-provisionamento de usuario sem roles
 # [mcp-local harness] feature: rbac-tests | plano: f82f1589 | 2026-08-03 14:49:41
 # Converte sub do JWT para uuid.UUID antes do session.get — corrige StatementError no SQLite
+#
+# [mcp-local harness] feature: supabase-auth-backend | plano: 82afe850 | 2026-08-04 00:41
+# get_current_user agora tenta o JWT local primeiro (compatibilidade com
+# o FIRST_SUPERUSER seedado e qualquer login por senha existente) e, se
+# falhar, tenta verificar como um JWT do Supabase Auth (login Google).
+# Na primeira vez que um usuário autenticado via Supabase aparece, um
+# User local é criado por email, sem nenhuma role atribuída -- um admin
+# precisa atribuir role manualmente antes do usuário ter qualquer
+# permissão além do próprio perfil. NÃO TESTADO ponta a ponta ainda
+# (ver aviso em app/core/supabase_auth.py) -- revisar antes de confiar
+# em produção.
+import secrets
 import uuid
 from collections.abc import Generator
 from typing import Annotated
@@ -7,13 +21,14 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jwt.exceptions import InvalidTokenError
+from jwt.exceptions import InvalidTokenError, PyJWTError
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from app.core import security
 from app.core.config import settings
 from app.core.db import engine
+from app.core.supabase_auth import verify_supabase_token
 from app.models import Module, RolePermission, TokenPayload, User, UserRole
 
 reusable_oauth2 = OAuth2PasswordBearer(
@@ -30,31 +45,66 @@ SessionDep = Annotated[Session, Depends(get_db)]
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
 
+def _get_or_create_user_from_supabase(session: Session, payload: dict) -> User:
+    """
+    Busca (ou cria) o User local correspondente a um token do Supabase
+    Auth, casando por e-mail. Usuários novos entram SEM roles -- um
+    admin precisa atribuir manualmente antes de terem qualquer
+    permissão além do próprio perfil (/users/me).
+    """
+    email = payload.get("email")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token do Supabase sem claim de email",
+        )
+
+    user = session.exec(select(User).where(User.email == email)).first()
+    if user:
+        return user
+
+    # Placeholder de senha inutilizável -- este usuário só autentica via
+    # Supabase (Google), nunca via /login/access-token local.
+    placeholder_password = security.get_password_hash(secrets.token_urlsafe(32))
+    user = User(
+        email=email,
+        full_name=payload.get("user_metadata", {}).get("full_name"),
+        hashed_password=placeholder_password,
+        is_active=True,
+        is_superuser=False,
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
 def get_current_user(session: SessionDep, token: TokenDep) -> User:
+    # 1. Tenta como JWT local (fluxo original, email+senha via backend)
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
         )
         token_data = TokenPayload(**payload)
-    except (InvalidTokenError, ValidationError):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
-
-    # Converte sub (string) para UUID — necessário para compatibilidade com
-    # SQLite (testes) e Postgres (produção), já que session.get espera UUID.
-    try:
         user_id = uuid.UUID(token_data.sub)
-    except (TypeError, ValueError):
+        user = session.get(User, user_id)
+        if user:
+            if not user.is_active:
+                raise HTTPException(status_code=400, detail="Inactive user")
+            return user
+    except (InvalidTokenError, ValidationError, TypeError, ValueError):
+        pass  # não é um JWT local válido -- tenta Supabase abaixo
+
+    # 2. Tenta como JWT do Supabase Auth (login Google, etc.)
+    try:
+        supabase_payload = verify_supabase_token(token)
+    except PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
 
-    user = session.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = _get_or_create_user_from_supabase(session, supabase_payload)
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return user

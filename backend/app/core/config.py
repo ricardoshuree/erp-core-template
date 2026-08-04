@@ -1,3 +1,5 @@
+# [mcp-local harness] feature: fix-settings-missing-supabase-fields | plano: 252eedf9 | 2026-08-04 08:52:39
+# Adiciona SUPABASE_URL (obrigatorio), SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY como campos declarados da classe Settings, corrigindo o AttributeError que derrubava o backend no boot (CrashLoop no Railway)
 import secrets
 import warnings
 from typing import Annotated, Any, Literal, Self
@@ -92,6 +94,18 @@ class Settings(BaseSettings):
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
+
+    # ------------------------------------------------------------------
+    # Supabase Auth (login Google) -- SUPABASE_URL e obrigatorio pois
+    # app/core/supabase_auth.py monta a URL do JWKS a partir dele no
+    # import do modulo (falha o boot inteiro se nao existir). As chaves
+    # sao usadas pelo frontend (nunca pelo backend diretamente hoje),
+    # mas ficam declaradas aqui tambem para futura leitura via API se
+    # necessario.
+    # ------------------------------------------------------------------
+    SUPABASE_URL: str
+    SUPABASE_ANON_KEY: str | None = None
+    SUPABASE_SERVICE_ROLE_KEY: str | None = None
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
