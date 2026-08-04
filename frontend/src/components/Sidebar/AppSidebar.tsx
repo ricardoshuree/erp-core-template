@@ -1,5 +1,5 @@
-// [mcp-local harness] feature: frontend-rbac | plano: 3800c8da | 2026-08-03 15:41:37
-// AppSidebar dinâmico — itens de menu filtrados por canRead do módulo correspondente
+// [mcp-local harness] feature: rbac-permission-matrix-sidebar | plano: 23d4f034 | 2026-08-04 14:59:40
+// Adiciona item de menu Permissoes, mantem Items original
 /**
  * AppSidebar — menu lateral dinâmico por módulo/role.
  *
@@ -13,11 +13,13 @@
  *
  * Itens exclusivos de superuser:
  *   - Admin        → apenas is_superuser
+ *   - Permissões   → apenas is_superuser (matriz Role x Módulo x Ação CRUD)
  *
  * Para adicionar um novo módulo num ERP filho:
  *   1. Cadastre o módulo no banco (migration ou seed)
  *   2. Adicione uma entrada em MODULE_ITEMS abaixo com o mesmo nome de módulo
  *   3. O menu aparece automaticamente para quem tiver permissão
+ *   4. Configure a matriz de permissões desse módulo em /permissions
  */
 
 import {
@@ -25,6 +27,7 @@ import {
   Home,
   Package,
   Settings,
+  ShieldCheck,
   Users,
 } from "lucide-react"
 
@@ -54,8 +57,9 @@ const MODULE_ITEMS: Array<Item & { module: string }> = [
   { module: "configuracoes", icon: Settings,  title: "Configurações", path: "/settings" },
 ]
 
-// Item exclusivo de superuser (acesso administrativo completo)
+// Itens exclusivos de superuser (acesso administrativo completo)
 const ADMIN_ITEM: Item = { icon: Package, title: "Admin", path: "/admin" }
+const PERMISSIONS_ITEM: Item = { icon: ShieldCheck, title: "Permissões", path: "/permissions" }
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
@@ -69,7 +73,7 @@ export function AppSidebar() {
   const items: Item[] = [
     ...FIXED_ITEMS,
     ...moduleItems,
-    ...(currentUser?.is_superuser ? [ADMIN_ITEM] : []),
+    ...(currentUser?.is_superuser ? [ADMIN_ITEM, PERMISSIONS_ITEM] : []),
   ]
 
   return (

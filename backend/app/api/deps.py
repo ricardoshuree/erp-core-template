@@ -1,5 +1,5 @@
-# [mcp-local harness] feature: close-open-signup-security | plano: ac575558 | 2026-08-04 11:28:17
-# Sistema fechado: login Google rejeita email desconhecido (403) em vez de auto-criar usuario; remove comentarios desatualizados de nao-testado
+# [mcp-local harness] feature: rbac-crud-permission-matrix | plano: 3c4333ee | 2026-08-04 13:43:07
+# require_module_permission agora aceita action: create/read/update/delete em vez de need_edit booleano
 """
 Dependências de autenticação e autorização.
 
@@ -16,7 +16,7 @@ futura abertura do canal de vendas B2C.
 """
 import uuid
 from collections.abc import Generator
-from typing import Annotated
+from typing import Annotated, Literal
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -119,24 +119,38 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
 
 
 # ---------------------------------------------------------------------------
-# RBAC — guard de permissão por módulo
+# RBAC — guard de permissão por módulo e ação (CRUD)
 # ---------------------------------------------------------------------------
 
-def require_module_permission(module_name: str, need_edit: bool = False):
+_ACTION_COLUMNS = {
+    "create": RolePermission.can_create,
+    "read": RolePermission.can_read,
+    "update": RolePermission.can_update,
+    "delete": RolePermission.can_delete,
+}
+
+
+def require_module_permission(
+    module_name: str, action: Literal["create", "read", "update", "delete"] = "read"
+):
     """
-    Factory de Depends para proteger rotas por módulo e nível de acesso.
+    Factory de Depends para proteger rotas por módulo e ação CRUD.
 
     Uso:
-        CanReadClientes  = Depends(require_module_permission("clientes"))
-        CanEditClientes  = Depends(require_module_permission("clientes", need_edit=True))
+        CanReadClientes   = Depends(require_module_permission("clientes"))
+        CanCreateClientes = Depends(require_module_permission("clientes", action="create"))
+        CanUpdateClientes = Depends(require_module_permission("clientes", action="update"))
+        CanDeleteClientes = Depends(require_module_permission("clientes", action="delete"))
 
         @router.get("/clientes", dependencies=[CanReadClientes])
         def list_clientes(): ...
 
-        @router.post("/clientes", dependencies=[CanEditClientes])
-        def create_cliente(): ...
+        @router.delete("/clientes/{id}", dependencies=[CanDeleteClientes])
+        def delete_cliente(): ...
 
     Superusuários passam direto — têm acesso irrestrito a todos os módulos.
+    Cada ação (create/read/update/delete) é independente: uma role pode
+    ter create+read+update sem delete (padrão "Gerente"), por exemplo.
     """
     def checker(current_user: CurrentUser, session: SessionDep) -> User:
         if current_user.is_superuser:
@@ -162,22 +176,20 @@ def require_module_permission(module_name: str, need_edit: bool = False):
                 detail=f"Módulo '{module_name}' não encontrado",
             )
 
+        action_column = _ACTION_COLUMNS[action]
+
         stmt = (
             select(RolePermission)
             .where(RolePermission.role_id.in_(role_ids))
             .where(RolePermission.module_id == module.id)
+            .where(action_column == True)  # noqa: E712
         )
-        if need_edit:
-            stmt = stmt.where(RolePermission.can_edit == True)  # noqa: E712
-        else:
-            stmt = stmt.where(RolePermission.can_read == True)  # noqa: E712
-
         perm = session.exec(stmt).first()
 
         if not perm:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Sem permissão de {'edição' if need_edit else 'leitura'} no módulo '{module_name}'",
+                detail=f"Sem permissão de '{action}' no módulo '{module_name}'",
             )
 
         return current_user

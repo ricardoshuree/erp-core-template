@@ -1,5 +1,5 @@
-# [mcp-local harness] feature: rbac-tests | plano: a56f90f1 | 2026-08-03 14:39:53
-# Corrige rota rbac-check chamando o guard diretamente com parâmetros de path dinâmicos
+# [mcp-local harness] feature: rbac-crud-permission-matrix | plano: 3c4333ee | 2026-08-04 13:43:54
+# Rota rbac-check agora aceita as 4 acoes CRUD em vez de read/edit
 from typing import Literal
 
 from fastapi import APIRouter, Depends
@@ -51,13 +51,13 @@ async def health_check() -> bool:
 )
 def rbac_check(
     module_name: str,
-    action: Literal["read", "edit"],
+    action: Literal["create", "read", "update", "delete"],
     current_user: CurrentUser,
     session: SessionDep,
 ) -> Message:
     """
     Retorna 200 se o usuário autenticado tem a permissão solicitada
-    no módulo informado.
+    (create/read/update/delete) no módulo informado.
 
     Códigos possíveis:
       200 — permissão concedida
@@ -65,8 +65,7 @@ def rbac_check(
       403 — sem permissão
       404 — módulo não encontrado
     """
-    need_edit = action == "edit"
     # Chama o guard diretamente (não via Depends, pois module_name é dinâmico)
-    checker = require_module_permission(module_name, need_edit=need_edit)
+    checker = require_module_permission(module_name, action=action)
     checker(current_user=current_user, session=session)
     return Message(message=f"Acesso '{action}' ao módulo '{module_name}' permitido")
