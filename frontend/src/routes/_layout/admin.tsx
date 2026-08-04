@@ -1,8 +1,10 @@
+// [mcp-local harness] feature: rbac-role-assignment-frontend | plano: 52de2bd0 | 2026-08-04 12:43:46
+// Usa UserPublicWithRoles em vez de UserPublic
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Suspense } from "react"
 
-import { type UserPublic, UsersService } from "@/client"
+import { type UserPublicWithRoles, UsersService } from "@/client"
 import AddUser from "@/components/Admin/AddUser"
 import { columns, type UserTableData } from "@/components/Admin/columns"
 import { DataTable } from "@/components/Common/DataTable"
@@ -39,10 +41,12 @@ function UsersTableContent() {
   const { user: currentUser } = useAuth()
   const { data: users } = useSuspenseQuery(getUsersQueryOptions())
 
-  const tableData: UserTableData[] = users.data.map((user: UserPublic) => ({
-    ...user,
-    isCurrentUser: currentUser?.id === user.id,
-  }))
+  const tableData: UserTableData[] = users.data.map(
+    (user: UserPublicWithRoles) => ({
+      ...user,
+      isCurrentUser: currentUser?.id === user.id,
+    }),
+  )
 
   return <DataTable columns={columns} data={tableData} />
 }

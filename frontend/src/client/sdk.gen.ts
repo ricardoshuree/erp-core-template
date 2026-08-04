@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, RolesReadRolesResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersReadUserPermissionsResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersUpdateUserRolesData, UsersUpdateUserRolesResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse, UtilsRbacCheckData, UtilsRbacCheckResponse } from './types.gen';
 
 export class ItemsService {
     /**
@@ -235,14 +235,29 @@ export class PrivateService {
     }
 }
 
+export class RolesService {
+    /**
+     * Read Roles
+     * Lista todas as roles RBAC cadastradas, ordenadas por nome.
+     * @returns RolesPublic Successful Response
+     * @throws ApiError
+     */
+    public static readRoles(): CancelablePromise<RolesReadRolesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/roles/'
+        });
+    }
+}
+
 export class UsersService {
     /**
      * Read Users
-     * Retrieve users.
+     * Retrieve users, com as roles RBAC de cada um (para a tela de admin).
      * @param data The data for the request.
      * @param data.skip
      * @param data.limit
-     * @returns UsersPublic Successful Response
+     * @returns UsersPublicWithRoles Successful Response
      * @throws ApiError
      */
     public static readUsers(data: UsersReadUsersData = {}): CancelablePromise<UsersReadUsersResponse> {
@@ -326,6 +341,24 @@ export class UsersService {
     }
     
     /**
+     * Read User Permissions
+     * Retorna os módulos e permissões efetivas do usuário logado.
+     *
+     * Superusuários recebem can_read=True e can_edit=True em todos os módulos
+     * cadastrados, independente de roles atribuídos.
+     *
+     * Usado pelo frontend para renderizar o menu lateral dinamicamente.
+     * @returns UserPermissions Successful Response
+     * @throws ApiError
+     */
+    public static readUserPermissions(): CancelablePromise<UsersReadUserPermissionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/users/me/permissions'
+        });
+    }
+    
+    /**
      * Update Password Me
      * Update own password.
      * @param data The data for the request.
@@ -347,7 +380,7 @@ export class UsersService {
     
     /**
      * Register User
-     * Create new user without the need to be logged in.
+     * Auto-cadastro público -- desabilitado, ver comentário acima.
      * @param data The data for the request.
      * @param data.requestBody
      * @returns UserPublic Successful Response
@@ -357,6 +390,32 @@ export class UsersService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/users/signup',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update User Roles
+     * Substitui o conjunto de roles RBAC de um usuário pelos ids
+     * informados (lista vazia remove todas as roles). Não afeta
+     * is_superuser -- é um controle independente.
+     * @param data The data for the request.
+     * @param data.userId
+     * @param data.requestBody
+     * @returns UserPublicWithRoles Successful Response
+     * @throws ApiError
+     */
+    public static updateUserRoles(data: UsersUpdateUserRolesData): CancelablePromise<UsersUpdateUserRolesResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/v1/users/{user_id}/roles',
+            path: {
+                user_id: data.userId
+            },
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
@@ -463,6 +522,36 @@ export class UtilsService {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/v1/utils/health-check/'
+        });
+    }
+    
+    /**
+     * Diagnóstico de permissão RBAC (uso interno / testes)
+     * Retorna 200 se o usuário autenticado tem a permissão solicitada
+     * no módulo informado.
+     *
+     * Códigos possíveis:
+     * 200 — permissão concedida
+     * 401 — não autenticado
+     * 403 — sem permissão
+     * 404 — módulo não encontrado
+     * @param data The data for the request.
+     * @param data.moduleName
+     * @param data.action
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static rbacCheck(data: UtilsRbacCheckData): CancelablePromise<UtilsRbacCheckResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/utils/rbac-check/{module_name}/{action}',
+            path: {
+                module_name: data.moduleName,
+                action: data.action
+            },
+            errors: {
+                422: 'Validation Error'
+            }
         });
     }
 }

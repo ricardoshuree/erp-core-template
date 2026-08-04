@@ -1,7 +1,9 @@
+// [mcp-local harness] feature: rbac-role-assignment-frontend | plano: 9c235fb7 | 2026-08-04 12:43:02
+// Adiciona ManageRoles ao menu de acoes, troca tipo do prop de UserPublic para UserPublicWithRoles
 import { EllipsisVertical } from "lucide-react"
 import { useState } from "react"
 
-import type { UserPublic } from "@/client"
+import type { UserPublicWithRoles } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,9 +13,10 @@ import {
 import useAuth from "@/hooks/useAuth"
 import DeleteUser from "./DeleteUser"
 import EditUser from "./EditUser"
+import ManageRoles from "./ManageRoles"
 
 interface UserActionsMenuProps {
-  user: UserPublic
+  user: UserPublicWithRoles
 }
 
 export const UserActionsMenu = ({ user }: UserActionsMenuProps) => {
@@ -33,6 +36,7 @@ export const UserActionsMenu = ({ user }: UserActionsMenuProps) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <EditUser user={user} onSuccess={() => setOpen(false)} />
+        <ManageRoles user={user} onSuccess={() => setOpen(false)} />
         <DeleteUser id={user.id} onSuccess={() => setOpen(false)} />
       </DropdownMenuContent>
     </DropdownMenu>

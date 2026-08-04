@@ -1,5 +1,5 @@
-# [mcp-local harness] feature: frontend-rbac | plano: 1231b7fe | 2026-08-03 15:40:11
-# Adiciona ModulePermission e UserPermissions como response models para o endpoint de permissões
+# [mcp-local harness] feature: rbac-role-assignment-backend | plano: fde7657e | 2026-08-04 12:36:00
+# Adiciona RolePublic, RolesPublic, UserRolesUpdate, UserPublicWithRoles, UsersPublicWithRoles -- suporte a atribuicao de roles RBAC via UI
 import uuid
 from datetime import UTC, datetime
 
@@ -95,6 +95,29 @@ class UserPermissions(SQLModel):
 
 
 # ---------------------------------------------------------------------------
+# RBAC — Response models (usados pela tela de administração de Usuários,
+# gestão de roles: listar roles disponíveis e atribuir a um usuário)
+# ---------------------------------------------------------------------------
+
+class RolePublic(SQLModel):
+    """Role RBAC exposta pra UI (não confundir com is_superuser)."""
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+
+
+class RolesPublic(SQLModel):
+    data: list[RolePublic]
+
+
+class UserRolesUpdate(SQLModel):
+    """Corpo de PUT /users/{user_id}/roles -- substitui o conjunto
+    inteiro de roles do usuário pelos ids informados (lista vazia
+    remove todas as roles)."""
+    role_ids: list[uuid.UUID]
+
+
+# ---------------------------------------------------------------------------
 # User
 # ---------------------------------------------------------------------------
 
@@ -151,6 +174,18 @@ class UserPublic(UserBase):
 
 class UsersPublic(SQLModel):
     data: list[UserPublic]
+    count: int
+
+
+class UserPublicWithRoles(UserPublic):
+    """UserPublic + nomes das roles RBAC atribuídas -- usado pela
+    tabela de Usuários na tela de admin, que mostra e permite editar
+    as roles de cada um."""
+    roles: list[str] = []
+
+
+class UsersPublicWithRoles(SQLModel):
+    data: list[UserPublicWithRoles]
     count: int
 
 
